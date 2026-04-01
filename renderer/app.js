@@ -1397,36 +1397,9 @@
         if (step.target) {
             const el = document.querySelector(step.target);
             if (el) {
-                const rect = el.getBoundingClientRect();
-                const pad = 6;
-                hl.style.display = 'block';
-                hl.style.left = (rect.left - pad) + 'px';
-                hl.style.top = (rect.top - pad) + 'px';
-                hl.style.width = (rect.width + pad * 2) + 'px';
-                hl.style.height = (rect.height + pad * 2) + 'px';
-                tt.style.transform = '';
-
-                /* Позиция тултипа */
-                const spaceBelow = window.innerHeight - rect.bottom;
-                const spaceRight = window.innerWidth - rect.right;
-                tt.style.left = '';
-                tt.style.right = '';
-                tt.style.top = '';
-                tt.style.bottom = '';
-
-                if (spaceBelow > 200) {
-                    tt.style.top = (rect.bottom + 16) + 'px';
-                    tt.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400)) + 'px';
-                } else if (rect.top > 200) {
-                    tt.style.bottom = (window.innerHeight - rect.top + 16) + 'px';
-                    tt.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400)) + 'px';
-                } else if (spaceRight > 400) {
-                    tt.style.top = Math.max(16, rect.top) + 'px';
-                    tt.style.left = (rect.right + 16) + 'px';
-                } else {
-                    tt.style.top = Math.max(16, rect.top) + 'px';
-                    tt.style.right = (window.innerWidth - rect.left + 16) + 'px';
-                }
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+                /* Пересчитать позицию после завершения прокрутки */
+                setTimeout(() => positionTourHighlight(el, hl, tt), 400);
             } else {
                 hl.style.display = 'none';
                 centerTooltip(tt);
@@ -1434,6 +1407,39 @@
         } else {
             hl.style.display = 'none';
             centerTooltip(tt);
+        }
+    }
+
+    function positionTourHighlight(el, hl, tt) {
+        const rect = el.getBoundingClientRect();
+        const pad = 6;
+        hl.style.display = 'block';
+        hl.style.left = (rect.left - pad) + 'px';
+        hl.style.top = (rect.top - pad) + 'px';
+        hl.style.width = (rect.width + pad * 2) + 'px';
+        hl.style.height = (rect.height + pad * 2) + 'px';
+        tt.style.transform = '';
+
+        /* Позиция тултипа */
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceRight = window.innerWidth - rect.right;
+        tt.style.left = '';
+        tt.style.right = '';
+        tt.style.top = '';
+        tt.style.bottom = '';
+
+        if (spaceBelow > 200) {
+            tt.style.top = (rect.bottom + 16) + 'px';
+            tt.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400)) + 'px';
+        } else if (rect.top > 200) {
+            tt.style.bottom = (window.innerHeight - rect.top + 16) + 'px';
+            tt.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400)) + 'px';
+        } else if (spaceRight > 400) {
+            tt.style.top = Math.max(16, rect.top) + 'px';
+            tt.style.left = (rect.right + 16) + 'px';
+        } else {
+            tt.style.top = Math.max(16, rect.top) + 'px';
+            tt.style.right = (window.innerWidth - rect.left + 16) + 'px';
         }
     }
 
