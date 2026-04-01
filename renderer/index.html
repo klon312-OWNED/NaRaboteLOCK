@@ -1,0 +1,227 @@
+<!--
+  Copyright (c) 2026 Антипин Андрей Александрович
+  All rights reserved. See LICENSE file.
+-->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+<title>Бронирование дат</title>
+<link rel="stylesheet" href="styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ======================== АВТОРИЗАЦИЯ ======================== -->
+<div id="authScreen" class="screen active">
+    <div class="auth-box">
+        <h1 class="auth-title">📅 Бронирование дат</h1>
+        <p class="auth-sub">Выберите способ входа</p>
+        <!-- Табы -->
+        <div class="auth-tabs">
+            <button class="auth-tab active" data-tab="login">Вход</button>
+            <button class="auth-tab" data-tab="register">Регистрация</button>
+            <button class="auth-tab" data-tab="admin">Администратор</button>
+        </div>
+        <!-- Вход сотрудника (логин + пароль) -->
+        <div id="tabLogin" class="auth-tab-content active">
+            <div class="auth-field">
+                <label for="loginUser">Логин:</label>
+                <input type="text" id="loginUser" placeholder="Ваш логин" autocomplete="off" autofocus>
+            </div>
+            <div class="auth-field">
+                <label for="loginPass">Пароль:</label>
+                <input type="password" id="loginPass" placeholder="••••••" autocomplete="off">
+            </div>
+            <button id="loginEmpBtn" class="btn btn-primary" style="width:100%">Войти</button>
+        </div>
+        <!-- Регистрация -->
+        <div id="tabRegister" class="auth-tab-content">
+            <div class="auth-field">
+                <label for="regLogin">Логин:</label>
+                <input type="text" id="regLogin" placeholder="Придумайте логин" autocomplete="off">
+            </div>
+            <div class="auth-field">
+                <label for="regPass">Пароль:</label>
+                <input type="password" id="regPass" placeholder="Минимум 3 символа" autocomplete="off">
+            </div>
+            <div class="auth-field">
+                <label for="regName">Отображаемое имя:</label>
+                <input type="text" id="regName" placeholder="Иванов И.И." autocomplete="off">
+            </div>
+            <button id="registerBtn" class="btn btn-primary" style="width:100%">Зарегистрироваться</button>
+        </div>
+        <!-- Вход администратора -->
+        <div id="tabAdmin" class="auth-tab-content">
+            <div class="auth-field">
+                <label for="adminLogin">Логин:</label>
+                <input type="text" id="adminLogin" placeholder="admin" autocomplete="off">
+            </div>
+            <div class="auth-field">
+                <label for="adminPass">Пароль:</label>
+                <input type="password" id="adminPass" placeholder="••••••" autocomplete="off">
+            </div>
+            <button id="loginAdminBtn" class="btn btn-primary" style="width:100%">Войти как администратор</button>
+        </div>
+        <p id="authError" class="error-msg" style="display:none;"></p>
+    </div>
+</div>
+
+<!-- ======================== ОСНОВНОЙ ЭКРАН ======================== -->
+<div id="mainScreen" class="screen">
+    <header class="topbar">
+        <div class="topbar-left"><h2 class="app-title">📅 Бронирование</h2></div>
+        <div class="topbar-center" id="empSelectorWrap" style="display:none;">
+            <label class="emp-sel-label">👤 Сотрудник:</label>
+            <select id="empSelector" class="emp-selector"></select>
+        </div>
+        <div class="topbar-right">
+            <span class="user-info" id="userInfo"></span>
+            <span class="role-badge" id="roleBadge"></span>
+            <button class="btn btn-sm btn-outline" id="logoutBtn">Выход</button>
+        </div>
+    </header>
+
+    <!-- ========== ПАНЕЛЬ НАСТРОЕК ========== -->
+    <div class="settings-bar" id="settingsBar">
+        <span class="settings-label">⚙ Настройки:</span>
+        <div class="sg"><label>Начало:</label><input class="si" type="time" id="defStart" value="09:00"></div>
+        <div class="sg"><label>Конец:</label><input class="si" type="time" id="defEnd" value="18:00"></div>
+        <div class="sg"><label>Обед(ч):</label><input class="si" type="number" id="defLunch" value="1" step="0.5" min="0" max="3"></div>
+        <div class="sg"><label>Норма(ч):</label><input class="si" type="number" id="defNorm" value="8" step="0.5" min="1" max="24"></div>
+        <div class="sg"><label>Ставка:</label><input class="si" type="number" id="defRate" value="1" step="0.05" min="0.1" max="2"></div>
+        <div class="sg"><label>Перерыв:</label><input class="si" type="text" id="defBreak" value="F130" style="width:70px;"></div>
+    </div>
+
+    <div class="container">
+        <!-- ========== ЛЕВАЯ КОЛОНКА ========== -->
+        <div class="col-left">
+            <!-- Календарь -->
+            <div class="card">
+                <div class="card-header">
+                    <button class="nav-btn" id="prevMonth">◀</button>
+                    <span class="month-title" id="monthTitle">Апрель 2026</span>
+                    <button class="nav-btn" id="nextMonth">▶</button>
+                </div>
+                <!-- Переключатель режима -->
+                <div class="mode-bar">
+                    <span class="mode-label">Режим:</span>
+                    <button class="btn btn-sm btn-mode" id="modeBtn">🔨 РАБОТА</button>
+                </div>
+                <div class="weekdays">
+                    <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+                </div>
+                <div class="cal-grid" id="calGrid"></div>
+                <div class="legend">
+                    <span class="leg-item"><span class="leg-dot dot-free"></span> Свободно</span>
+                    <span class="leg-item"><span class="leg-dot dot-partial"></span> Частично</span>
+                    <span class="leg-item"><span class="leg-dot dot-full"></span> Занято</span>
+                    <span class="leg-item"><span class="leg-dot dot-mine"></span> Моя бронь</span>
+                    <span class="leg-item"><span class="leg-dot dot-work"></span> Рабочий</span>
+                    <span class="leg-item"><span class="leg-dot dot-vac"></span> Отпуск</span>
+                    <span class="leg-item"><span class="leg-dot dot-hol"></span> Праздник</span>
+                    <span class="leg-item"><span class="leg-dot dot-pre"></span> Предпразд.</span>
+                </div>
+            </div>
+            <!-- Панель дат -->
+            <div class="card" id="datesPanel">
+                <div class="card-title-row">
+                    <span class="card-title" style="border:0;margin:0;padding:0;">📋 Мои дни</span>
+                    <span class="cnt-badge" id="dayCounts">0 раб. / 0 отп.</span>
+                </div>
+                <div class="scroll-area" id="datesContent">
+                    <p class="hint">Кликните на дату в календаре</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== ПРАВАЯ КОЛОНКА ========== -->
+        <div class="col-right">
+            <!-- Детали даты + бронирование -->
+            <div class="card" id="dateDetails">
+                <div class="card-title">📌 Детали даты</div>
+                <div id="dateContent" class="detail-content">
+                    <p class="hint">Кликните на дату в календаре</p>
+                </div>
+            </div>
+
+            <!-- Пересечения -->
+            <div class="card">
+                <div class="card-title">🔀 Пересечения</div>
+                <div id="intersections" class="inters-content">
+                    <p class="hint">нет общих дат</p>
+                </div>
+            </div>
+
+            <!-- Статистика -->
+            <div class="card">
+                <div class="card-title">⏱ Статистика</div>
+                <div id="statsContent"></div>
+            </div>
+
+            <!-- Управление (руководитель / админ) -->
+            <div class="card" id="managerPanel" style="display:none;">
+                <div class="card-title">🔧 Управление (рук.)</div>
+                <div id="managerContent" class="mgr-content">
+                    <p class="hint">Выберите дату для управления</p>
+                </div>
+            </div>
+
+            <!-- Администрирование пользователей (только админ) -->
+            <div class="card" id="adminPanel" style="display:none;">
+                <div class="card-title">🛡 Администрирование</div>
+                <div id="adminContent">
+                    <!-- Список пользователей (заполняется из app.js) -->
+                    <div id="adminUserList"></div>
+                    <!-- Массовое снятие блокировок -->
+                    <div class="admin-pass-section">
+                        <div class="vac-title">🔓 Снять блокировки за период</div>
+                        <div class="admin-pass-row">
+                            <input type="date" id="bulkUnblockFrom" class="si" style="width:130px;" title="С даты">
+                            <input type="date" id="bulkUnblockTo" class="si" style="width:130px;" title="По дату">
+                            <button class="btn btn-danger btn-xs" id="bulkUnblockBtn">Снять все</button>
+                        </div>
+                    </div>
+                    <!-- Смена пароля админа -->
+                    <div class="admin-pass-section">
+                        <div class="vac-title">🔑 Сменить пароль администратора</div>
+                        <div class="admin-pass-row">
+                            <input type="password" id="oldAdminPass" class="si" placeholder="Текущий" style="width:110px;">
+                            <input type="password" id="newAdminPass" class="si" placeholder="Новый" style="width:110px;">
+                            <button class="btn btn-primary btn-xs" id="changePassBtn">Сменить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Экспорт -->
+            <div class="btn-bar">
+                <button class="btn btn-gold btn-sm" id="expExcelBtn">📊 Excel (.xlsx)</button>
+                <button class="btn btn-blue btn-sm" id="expR7Btn">📊 Р7 (.ods)</button>
+                <button class="btn btn-outline btn-sm" id="openFolderBtn">📂 Папка</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== МОДАЛКА ======================== -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">Подтверждение</div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="modalConfirm">Подтвердить</button>
+            <button class="btn btn-outline" id="modalCancel">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Тосты -->
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

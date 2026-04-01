@@ -1,0 +1,22 @@
+{
+  "name": "booking-app",
+  "version": "1.0.0",
+  "description": "Приложение бронирования дат сотрудниками (Electron + xlsx)",
+  "author": {
+    "name": "Антипин Андрей Александрович",
+    "email": "Skilleforsken@gmail.com"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "create-test": "node scripts/create_test_data.js"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}

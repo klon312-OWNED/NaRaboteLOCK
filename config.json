@@ -1,0 +1,14 @@
+{
+  "scheduleFile": "data/schedule.xlsx",
+  "usersFile": "data/users.json",
+  "maxPerDate": 2,
+  "exportExcel": "data/export.xlsx",
+  "exportR7": "data/export.ods",
+  "comments": {
+    "scheduleFile": "Путь к файлу графика относительно корня приложения (.xlsx или .ods)",
+    "usersFile": "Путь к файлу пользователей (JSON)",
+    "maxPerDate": "Максимальное количество сотрудников на одну дату",
+    "exportExcel": "Путь к постоянному файлу экспорта Excel (.xlsx)",
+    "exportR7": "Путь к постоянному файлу экспорта Р7 (.ods)"
+  }
+}
