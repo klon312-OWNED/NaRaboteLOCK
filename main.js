@@ -22,14 +22,19 @@ const fs = require('fs');
 const ScheduleManager = require('./lib/schedule');
 const UserManager = require('./lib/users');
 
+/* --- Базовый каталог для данных (в упакованном приложении — userData) --- */
+const DATA_ROOT = app.isPackaged
+    ? path.join(app.getPath('userData'))
+    : __dirname;
+
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 let config = {};
 try { config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')); } catch (e) { console.error(e.message); }
 
-const schedulePath = path.join(__dirname, config.scheduleFile || 'data/schedule.xlsx');
-const usersPath = path.join(__dirname, config.usersFile || 'data/users.json');
-const exportExcelPath = path.join(__dirname, config.exportExcel || 'data/export.xlsx');
-const exportR7Path = path.join(__dirname, config.exportR7 || 'data/export.ods');
+const schedulePath = path.join(DATA_ROOT, config.scheduleFile || 'data/schedule.xlsx');
+const usersPath = path.join(DATA_ROOT, config.usersFile || 'data/users.json');
+const exportExcelPath = path.join(DATA_ROOT, config.exportExcel || 'data/export.xlsx');
+const exportR7Path = path.join(DATA_ROOT, config.exportR7 || 'data/export.ods');
 let schedule;
 let users;
 let mainWindow;
@@ -48,7 +53,7 @@ function isManagerOrAdmin() {
 
 /* ======================= ЖУРНАЛ ДЕЙСТВИЙ ==================== */
 
-const AUDIT_PATH = path.join(__dirname, 'data', 'audit.json');
+const AUDIT_PATH = path.join(DATA_ROOT, 'data', 'audit.json');
 
 function auditLog(action, user, details) {
     try {
@@ -82,6 +87,15 @@ function createWindow() {
 function initSchedule() {
     const dir = path.dirname(schedulePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    /* При первом запуске установленного приложения — копируем users.json из ресурсов */
+    if (app.isPackaged && !fs.existsSync(usersPath)) {
+        const srcUsers = path.join(process.resourcesPath, 'data', 'users.json');
+        if (fs.existsSync(srcUsers)) {
+            fs.copyFileSync(srcUsers, usersPath);
+        }
+    }
+
     schedule = new ScheduleManager(schedulePath, config.maxPerDate || 2);
     if (!fs.existsSync(schedulePath)) {
         schedule.createEmpty();
@@ -371,12 +385,12 @@ ipcMain.handle('select-file', async () => {
 
 /* ======================= АВТОБЭКАП ========================== */
 
-const BACKUP_DIR = path.join(__dirname, 'data', 'backups');
+const BACKUP_DIR = path.join(DATA_ROOT, 'data', 'backups');
 const MAX_BACKUPS = 5;
 
 function autoBackup() {
     try {
-        const dataDir = path.join(__dirname, 'data');
+        const dataDir = path.join(DATA_ROOT, 'data');
         if (!fs.existsSync(dataDir)) return;
         if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
