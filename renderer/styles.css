@@ -317,5 +317,29 @@ table.st .trow td { background: var(--surface2) !important; color: var(--warning
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+/* ==================== ИНСТРУКЦИЯ (ONBOARDING) ============= */
+.tour-overlay { display: none; position: fixed; inset: 0; z-index: 5000; }
+.tour-overlay.show { display: block; }
+.tour-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 5001; pointer-events: auto; }
+.tour-highlight {
+    position: absolute; z-index: 5002; border-radius: 8px;
+    box-shadow: 0 0 0 4000px rgba(0,0,0,.65), 0 0 20px 4px var(--primary);
+    pointer-events: none; transition: all .35s ease;
+}
+.tour-tooltip {
+    position: absolute; z-index: 5003; background: var(--surface);
+    border: 1px solid var(--primary); border-radius: 12px;
+    padding: 18px 22px; max-width: 380px; min-width: 260px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5); transition: all .35s ease;
+}
+.tour-tooltip-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--primary); }
+.tour-tooltip-text { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 14px; }
+.tour-tooltip-footer { display: flex; align-items: center; justify-content: space-between; }
+.tour-dots { display: flex; gap: 5px; }
+.tour-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.tour-dot.active { background: var(--primary); }
+.tour-btns { display: flex; gap: 6px; }
+.tour-step-num { font-size: 11px; color: var(--text2); }
+
 /* ==================== АДАПТИВНОСТЬ ======================== */
 @media (max-width: 850px) { .container { flex-direction: column; } .col-left, .col-right { min-width: auto; } }

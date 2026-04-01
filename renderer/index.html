@@ -80,6 +80,7 @@
         <div class="topbar-right">
             <span class="user-info" id="userInfo"></span>
             <span class="role-badge" id="roleBadge"></span>
+            <button class="btn btn-sm btn-outline" id="helpBtn" title="Инструкция">❓</button>
             <button class="btn btn-sm btn-outline" id="themeBtn" title="Сменить тему">🌓</button>
             <button class="btn btn-sm btn-outline" id="logoutBtn">Выход</button>
         </div>
@@ -230,6 +231,24 @@
 
 <!-- Тосты -->
 <div id="toastContainer" class="toast-container"></div>
+
+<!-- Инструкция (onboarding tour) -->
+<div class="tour-overlay" id="tourOverlay">
+    <div class="tour-backdrop" id="tourBackdrop"></div>
+    <div class="tour-highlight" id="tourHighlight"></div>
+    <div class="tour-tooltip" id="tourTooltip">
+        <div class="tour-tooltip-title" id="tourTitle"></div>
+        <div class="tour-tooltip-text" id="tourText"></div>
+        <div class="tour-tooltip-footer">
+            <div><span class="tour-step-num" id="tourStepNum"></span><div class="tour-dots" id="tourDots"></div></div>
+            <div class="tour-btns">
+                <button class="btn btn-outline btn-sm" id="tourSkip">Пропустить</button>
+                <button class="btn btn-outline btn-sm" id="tourPrev">◀ Назад</button>
+                <button class="btn btn-primary btn-sm" id="tourNext">Далее ▶</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="app.js"></script>
 </body>

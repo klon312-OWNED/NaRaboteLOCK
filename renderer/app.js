@@ -134,6 +134,7 @@
         $('bulkUnblockBtn').onclick = doBulkUnblock;
         $('todayBtn').onclick = goToday;
         $('themeBtn').onclick = toggleTheme;
+        $('helpBtn').onclick = () => startTour();
         $('monthTitle').onclick = toggleMonthPicker;
 
         /* Автосохранение настроек */
@@ -182,6 +183,13 @@
         if (res.notifications && res.notifications.length) {
             const n = res.notifications.length;
             toast('📢 ' + n + ' событий с последнего входа', 'info');
+        }
+
+        /* Инструкция при первом входе */
+        const tourKey = 'narabote-tour-done-' + res.empId;
+        if (!localStorage.getItem(tourKey)) {
+            localStorage.setItem(tourKey, '1');
+            setTimeout(() => startTour(), 600);
         }
     }
 
@@ -1271,6 +1279,169 @@
         el.className = 'toast ' + type; el.textContent = msg;
         $('toastContainer').appendChild(el);
         setTimeout(() => { el.style.animation = 'toastOut .3s ease-in forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    /* ==========================================================
+     *  ИНСТРУКЦИЯ (ONBOARDING TOUR)
+     * ========================================================== */
+
+    const TOUR_STEPS = [
+        {
+            title: '👋 Добро пожаловать в НаРаботе!',
+            text: 'Это краткая инструкция по работе с приложением. Вы можете пройти её повторно, нажав кнопку <b>❓</b> в правом верхнем углу.',
+            target: null
+        },
+        {
+            title: '📅 Календарь',
+            text: 'Здесь отображаются все дни месяца. Цвета показывают рабочие дни, отпуска, праздники и бронирования. Кликните на название месяца — откроется быстрый выбор.',
+            target: '#calGrid'
+        },
+        {
+            title: '🔨 Переключатель режима',
+            text: 'Нажимайте для переключения режимов:<br>• <b>РАБОТА</b> — клик ставит/убирает рабочий день<br>• <b>ОТПУСК</b> — добавляет отпускные дни<br>• <b>КОМАНДИРОВКА</b> — назначает командировки<br>• <b>БРОНЬ</b> — только для руководителей',
+            target: '#modeBtn'
+        },
+        {
+            title: '⇧ Выделение диапазона',
+            text: 'Кликните на дату, затем <b>Shift+Click</b> на другую — все рабочие дни между ними будут заполнены автоматически (в любом режиме).',
+            target: '#calGrid'
+        },
+        {
+            title: '⚙ Настройки',
+            text: 'Задайте значения по умолчанию: время начала/конца, обед, ставку. Настройки сохраняются автоматически для каждого компьютера.',
+            target: '#settingsBar'
+        },
+        {
+            title: '📋 Мои дни',
+            text: 'Сводная таблица ваших рабочих дней, отпусков и командировок. Здесь же можно отредактировать время и удалить записи.',
+            target: '#datesPanel'
+        },
+        {
+            title: '📌 Детали даты',
+            text: 'Кликните на дату в календаре — здесь появятся подробности: кто работает, бронирования, статус.',
+            target: '#dateDetails'
+        },
+        {
+            title: '⏱ Статистика',
+            text: 'Общая таблица по всем сотрудникам: рабочие дни, нормо-часы, факт, отпуска, остаток отпуска и командировки.',
+            target: '#statsContent'
+        },
+        {
+            title: '📊 Экспорт',
+            text: 'Выгрузка данных в <b>Excel (.xlsx)</b> или <b>Р7 (.ods)</b>. Кнопка «Папка» открывает каталог с файлами.',
+            target: '.btn-bar'
+        },
+        {
+            title: '🌓 Тема и помощь',
+            text: '<b>🌓</b> — переключает тёмную/светлую тему<br><b>❓</b> — открывает эту инструкцию повторно',
+            target: '#themeBtn'
+        },
+        {
+            title: '🔄 Совместная работа',
+            text: 'Данные обновляются автоматически каждые 3 секунды. Несколько человек могут работать одновременно — изменения подтягиваются в реальном времени.',
+            target: null
+        },
+        {
+            title: '✅ Готово!',
+            text: 'Теперь вы знаете основы. Если что-то забудете — нажмите <b>❓</b> в шапке. Приятной работы!',
+            target: null
+        }
+    ];
+
+    let tourStep = 0;
+
+    function startTour() {
+        tourStep = 0;
+        $('tourOverlay').classList.add('show');
+        renderTourStep();
+    }
+
+    function endTour() {
+        $('tourOverlay').classList.remove('show');
+    }
+
+    function renderTourStep() {
+        const step = TOUR_STEPS[tourStep];
+        $('tourTitle').innerHTML = step.title;
+        $('tourText').innerHTML = step.text;
+        $('tourStepNum').textContent = (tourStep + 1) + ' из ' + TOUR_STEPS.length;
+
+        /* Точки */
+        let dots = '';
+        for (let i = 0; i < TOUR_STEPS.length; i++) {
+            dots += '<div class="tour-dot' + (i === tourStep ? ' active' : '') + '"></div>';
+        }
+        $('tourDots').innerHTML = dots;
+
+        /* Кнопки */
+        $('tourPrev').style.display = tourStep === 0 ? 'none' : '';
+        const isLast = tourStep === TOUR_STEPS.length - 1;
+        $('tourNext').textContent = isLast ? 'Завершить ✓' : 'Далее ▶';
+        $('tourSkip').style.display = isLast ? 'none' : '';
+
+        $('tourNext').onclick = () => {
+            if (isLast) { endTour(); return; }
+            tourStep++;
+            renderTourStep();
+        };
+        $('tourPrev').onclick = () => {
+            if (tourStep > 0) { tourStep--; renderTourStep(); }
+        };
+        $('tourSkip').onclick = endTour;
+        $('tourBackdrop').onclick = endTour;
+
+        /* Подсветка целевого элемента */
+        const hl = $('tourHighlight');
+        const tt = $('tourTooltip');
+        if (step.target) {
+            const el = document.querySelector(step.target);
+            if (el) {
+                const rect = el.getBoundingClientRect();
+                const pad = 6;
+                hl.style.display = 'block';
+                hl.style.left = (rect.left - pad) + 'px';
+                hl.style.top = (rect.top - pad) + 'px';
+                hl.style.width = (rect.width + pad * 2) + 'px';
+                hl.style.height = (rect.height + pad * 2) + 'px';
+                tt.style.transform = '';
+
+                /* Позиция тултипа */
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const spaceRight = window.innerWidth - rect.right;
+                tt.style.left = '';
+                tt.style.right = '';
+                tt.style.top = '';
+                tt.style.bottom = '';
+
+                if (spaceBelow > 200) {
+                    tt.style.top = (rect.bottom + 16) + 'px';
+                    tt.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400)) + 'px';
+                } else if (rect.top > 200) {
+                    tt.style.bottom = (window.innerHeight - rect.top + 16) + 'px';
+                    tt.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 400)) + 'px';
+                } else if (spaceRight > 400) {
+                    tt.style.top = Math.max(16, rect.top) + 'px';
+                    tt.style.left = (rect.right + 16) + 'px';
+                } else {
+                    tt.style.top = Math.max(16, rect.top) + 'px';
+                    tt.style.right = (window.innerWidth - rect.left + 16) + 'px';
+                }
+            } else {
+                hl.style.display = 'none';
+                centerTooltip(tt);
+            }
+        } else {
+            hl.style.display = 'none';
+            centerTooltip(tt);
+        }
+    }
+
+    function centerTooltip(tt) {
+        tt.style.left = '50%';
+        tt.style.top = '50%';
+        tt.style.right = '';
+        tt.style.bottom = '';
+        tt.style.transform = 'translate(-50%, -50%)';
     }
 
     /* ==========================================================
