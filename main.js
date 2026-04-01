@@ -132,8 +132,8 @@ ipcMain.handle('user-login', (ev, login, password) => {
     return res;
 });
 
-ipcMain.handle('register', (ev, login, password, displayName) => {
-    return users.register(login, password, displayName);
+ipcMain.handle('register', (ev, login, password, displayName, tabNum) => {
+    return users.register(login, password, displayName, tabNum);
 });
 
 ipcMain.handle('logout', () => {
@@ -365,13 +365,19 @@ ipcMain.handle('cancel-bookings-range', (ev, dateFrom, dateTo) => {
 /* --- Экспорт --- */
 ipcMain.handle('export-excel', (ev, breakType) => {
     if (!isManagerOrAdmin()) return { success: false, message: 'Только руководитель/админ' };
-    try { return schedule.exportStructured(exportExcelPath, breakType); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const tabMap = {};
+        users.listUsers().forEach(u => { tabMap[u.id] = u.tabNum || ''; });
+        return schedule.exportStructured(exportExcelPath, breakType, tabMap);
+    } catch (e) { return { success: false, message: e.message }; }
 });
 ipcMain.handle('export-r7', (ev, breakType) => {
     if (!isManagerOrAdmin()) return { success: false, message: 'Только руководитель/админ' };
-    try { return schedule.exportStructured(exportR7Path, breakType); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const tabMap = {};
+        users.listUsers().forEach(u => { tabMap[u.id] = u.tabNum || ''; });
+        return schedule.exportStructured(exportR7Path, breakType, tabMap);
+    } catch (e) { return { success: false, message: e.message }; }
 });
 ipcMain.handle('open-export-folder', () => {
     if (!isManagerOrAdmin()) return { success: false, message: 'Только руководитель/админ' };

@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('api', {
     /* Авторизация */
     adminLogin:    (login, pass)            => ipcRenderer.invoke('admin-login', login, pass),
     userLogin:     (login, pass)            => ipcRenderer.invoke('user-login', login, pass),
-    register:      (login, pass, name)      => ipcRenderer.invoke('register', login, pass, name),
+    register:      (login, pass, name, tab) => ipcRenderer.invoke('register', login, pass, name, tab),
     logout:        ()                       => ipcRenderer.invoke('logout'),
     getSession:    ()                       => ipcRenderer.invoke('get-session'),
 

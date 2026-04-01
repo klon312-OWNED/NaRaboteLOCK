@@ -118,6 +118,7 @@
         $('registerBtn').onclick = doRegister;
         $('regPass').onkeydown = e => { if (e.key === 'Enter') doRegister(); };
         $('regName').onkeydown = e => { if (e.key === 'Enter') doRegister(); };
+        $('regTabNum').onkeydown = e => { if (e.key === 'Enter') doRegister(); };
         $('loginAdminBtn').onclick = doLoginAdmin;
         $('adminPass').onkeydown = e => { if (e.key === 'Enter') doLoginAdmin(); };
         $('logoutBtn').onclick = doLogout;
@@ -196,12 +197,13 @@
     }
 
     async function doRegister() {
-        const login = $('regLogin').value.trim();
-        const pass  = $('regPass').value;
-        const name  = $('regName').value.trim();
+        const login  = $('regLogin').value.trim();
+        const pass   = $('regPass').value;
+        const name   = $('regName').value.trim();
+        const tabNum = $('regTabNum').value.trim();
         if (!login || !pass) { showAuthErr('Заполните логин и пароль'); return; }
 
-        const res = await window.api.register(login, pass, name);
+        const res = await window.api.register(login, pass, name, tabNum);
         if (!res.success) { showAuthErr(res.message || 'Ошибка регистрации'); return; }
 
         toast('Регистрация успешна! Теперь войдите.', 'success');
@@ -270,7 +272,7 @@
         $('authScreen').classList.add('active');
         $('loginUser').value = ''; $('loginPass').value = '';
         $('adminLogin').value = ''; $('adminPass').value = '';
-        $('regLogin').value = ''; $('regPass').value = ''; $('regName').value = '';
+        $('regLogin').value = ''; $('regPass').value = ''; $('regName').value = ''; $('regTabNum').value = '';
         $('loginUser').focus();
     }
 
@@ -1123,11 +1125,12 @@
             return;
         }
 
-        let html = '<table class="admin-user-table"><thead><tr><th>Логин</th><th>Имя</th><th>Роль</th><th>Действия</th></tr></thead><tbody>';
+        let html = '<table class="admin-user-table"><thead><tr><th>Логин</th><th>Имя</th><th>Таб.№</th><th>Роль</th><th>Действия</th></tr></thead><tbody>';
         users.forEach(u => {
             html += '<tr>';
             html += '<td>' + escHtml(u.id) + '</td>';
             html += '<td>' + escHtml(u.name) + '</td>';
+            html += '<td>' + escHtml(u.tabNum || '') + '</td>';
             html += '<td><select class="role-select" data-uid="' + escHtml(u.id) + '">';
             html += '<option value="worker"' + (u.role === 'worker' ? ' selected' : '') + '>Сотрудник</option>';
             html += '<option value="manager"' + (u.role === 'manager' ? ' selected' : '') + '>Руководитель</option>';
