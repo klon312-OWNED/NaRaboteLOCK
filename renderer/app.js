@@ -174,9 +174,11 @@
         const res = await window.api.userLogin(login, pass);
         if (!res.success) { showAuthErr(res.message || 'Ошибка входа'); return; }
 
-        session = { type: 'user', empId: res.empId, role: res.role };
-        employeeId = res.empId;
-        viewingEmp = res.empId;
+        /* Синхронизация сессии: берём роль с сервера для надёжности */
+        const srv = await window.api.getSession();
+        session = { type: srv.type || 'user', empId: srv.empId || res.empId, role: srv.role || res.role };
+        employeeId = session.empId;
+        viewingEmp = session.empId;
         enterApp();
 
         /* Уведомления о событиях с прошлого входа */
@@ -454,6 +456,16 @@
         if (!session.type || _reloading) return;
         _reloading = true;
         try {
+            /* Обновляем роль из серверной сессии (если админ сменил роль пока мы в системе) */
+            const srv = await window.api.getSession();
+            const roleChanged = srv.role && srv.role !== session.role;
+            if (roleChanged) {
+                session.role = srv.role;
+                enterApp();          /* перерисовать интерфейс под новую роль */
+                _reloading = false;
+                return;
+            }
+
             const [sRes, wRes, vRes, tRes, eRes] = await Promise.all([
                 window.api.loadSchedule(), window.api.loadWork(),
                 window.api.loadVacation(), window.api.loadTrips(), window.api.getEmployees()

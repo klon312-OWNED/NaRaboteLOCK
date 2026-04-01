@@ -141,10 +141,17 @@ ipcMain.handle('logout', () => {
     return { success: true };
 });
 
-ipcMain.handle('get-session', () => ({
-    type: session.type, empId: session.empId, role: session.role,
-    isAdmin: session.type === 'admin', isManager: isManagerOrAdmin()
-}));
+ipcMain.handle('get-session', () => {
+    /* Перечитываем актуальную роль из файла (мог измениться, пока пользователь в системе) */
+    if (session.type === 'user' && session.empId) {
+        const u = users.getUser(session.empId);
+        if (u) session.role = u.role;
+    }
+    return {
+        type: session.type, empId: session.empId, role: session.role,
+        isAdmin: session.type === 'admin', isManager: isManagerOrAdmin()
+    };
+});
 
 /* --- Конфигурация --- */
 ipcMain.handle('get-config', () => ({ maxPerDate: config.maxPerDate || 2 }));
