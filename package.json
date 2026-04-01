@@ -72,19 +72,18 @@
     "linux": {
       "target": [
         {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "AppImage",
+          "target": "tar.gz",
           "arch": [
             "x64"
           ]
         }
       ],
       "category": "Office",
+      "desktop": {
+        "Name": "НаРаботеLOCK",
+        "Comment": "Учёт рабочего времени",
+        "Categories": "Office;ProjectManagement;"
+      },
       "maintainer": "Антипин Андрей Александрович <Skilleforsken@gmail.com>"
     }
   }
