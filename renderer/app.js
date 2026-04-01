@@ -245,6 +245,7 @@
         $('managerPanel').style.display = isManagerOrAdmin() ? '' : 'none';
         $('empSelectorWrap').style.display = isManagerOrAdmin() ? '' : 'none';
         $('adminPanel').style.display = isAdmin() ? '' : 'none';
+        $('exportBar').style.display = isManagerOrAdmin() ? '' : 'none';
 
         const now = new Date();
         curMonth = now.getMonth(); curYear = now.getFullYear();

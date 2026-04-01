@@ -353,6 +353,7 @@ ipcMain.handle('export-r7', (ev, breakType) => {
     catch (e) { return { success: false, message: e.message }; }
 });
 ipcMain.handle('open-export-folder', () => {
+    if (!isManagerOrAdmin()) return { success: false, message: 'Только руководитель/админ' };
     const dir = path.dirname(exportExcelPath);
     if (fs.existsSync(dir)) shell.openPath(dir);
     return { success: true };
