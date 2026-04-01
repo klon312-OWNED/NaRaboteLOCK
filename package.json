@@ -1,7 +1,7 @@
 {
-  "name": "narabote",
+  "name": "narabote-lock",
   "version": "1.0.0",
-  "description": "НаРаботе — учёт рабочего времени, отпусков и графиков сотрудников (Electron + xlsx)",
+  "description": "НаРаботеLOCK — учёт рабочего времени (с блокировкой файлов)",
   "author": {
     "name": "Антипин Андрей Александрович",
     "email": "Skilleforsken@gmail.com"
@@ -17,6 +17,7 @@
     "dist": "electron-builder --win --linux"
   },
   "dependencies": {
+    "proper-lockfile": "^4.1.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -24,8 +25,8 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "ru.narabote.app",
-    "productName": "НаРаботе",
+    "appId": "ru.narabote-lock.app",
+    "productName": "НаРаботеLOCK",
     "directories": {
       "output": "dist"
     },
