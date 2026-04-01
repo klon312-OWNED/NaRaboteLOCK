@@ -49,8 +49,16 @@ contextBridge.exposeInMainWorld('api', {
     addVacation:  (emp, dt)                 => ipcRenderer.invoke('add-vacation', emp, dt),
     removeVacation:(emp, dt)                => ipcRenderer.invoke('remove-vacation', emp, dt),
 
+    /* Командировки */
+    loadTrips:    ()                        => ipcRenderer.invoke('load-trips'),
+    addTrip:      (emp, dt)                 => ipcRenderer.invoke('add-trip', emp, dt),
+    removeTrip:   (emp, dt)                 => ipcRenderer.invoke('remove-trip', emp, dt),
+
     /* Сотрудники */
     getEmployees: ()                        => ipcRenderer.invoke('get-employees'),
+
+    /* Журнал действий (админ) */
+    loadAudit:    ()                        => ipcRenderer.invoke('load-audit'),
 
     /* Экспорт */
     exportExcel:  (breakType)               => ipcRenderer.invoke('export-excel', breakType),

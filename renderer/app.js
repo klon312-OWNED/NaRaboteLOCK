@@ -70,6 +70,7 @@
     let scheduleData = [];
     let workData = [];
     let vacData = [];
+    let tripData = [];
     let allEmployees = [];
 
     let curMonth = 3, curYear = 2026, selectedDate = null;
@@ -129,10 +130,21 @@
         $('changePassBtn').onclick = doChangeAdminPass;
         $('bulkUnblockBtn').onclick = doBulkUnblock;
         $('todayBtn').onclick = goToday;
+        $('themeBtn').onclick = toggleTheme;
+        $('monthTitle').onclick = toggleMonthPicker;
+
+        /* Тема из localStorage */
+        if (localStorage.getItem('narabote-theme') === 'light') document.body.classList.add('light-theme');
 
         /* Клавиатура: Escape закрывает модалку */
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') hideModal();
+        });
+
+        /* Закрытие пикера месяца по клику вне */
+        document.addEventListener('click', e => {
+            const mp = document.querySelector('.month-picker');
+            if (mp && !mp.contains(e.target) && e.target !== $('monthTitle')) mp.remove();
         });
     }
 
@@ -154,6 +166,12 @@
         employeeId = res.empId;
         viewingEmp = res.empId;
         enterApp();
+
+        /* Уведомления о событиях с прошлого входа */
+        if (res.notifications && res.notifications.length) {
+            const n = res.notifications.length;
+            toast('📢 ' + n + ' событий с последнего входа', 'info');
+        }
     }
 
     async function doRegister() {
@@ -297,13 +315,14 @@
      * ========================================================== */
 
     async function loadAll() {
-        const [sRes, wRes, vRes, eRes] = await Promise.all([
+        const [sRes, wRes, vRes, tRes, eRes] = await Promise.all([
             window.api.loadSchedule(), window.api.loadWork(),
-            window.api.loadVacation(), window.api.getEmployees()
+            window.api.loadVacation(), window.api.loadTrips(), window.api.getEmployees()
         ]);
         scheduleData = sRes.success ? sRes.data : [];
         workData = wRes.success ? wRes.data : [];
         vacData = vRes.success ? vRes.data : [];
+        tripData = tRes.success ? tRes.data : [];
         allEmployees = eRes.success ? eRes.data : [];
         if (employeeId && employeeId !== 'admin' && !allEmployees.includes(employeeId))
             allEmployees.push(employeeId);
@@ -335,11 +354,13 @@
 
     function toggleMode() {
         if (isWorker()) {
-            /* Работник: только work ↔ vacation (без book) */
-            markMode = markMode === 'work' ? 'vacation' : 'work';
+            if (markMode === 'work') markMode = 'vacation';
+            else if (markMode === 'vacation') markMode = 'trip';
+            else markMode = 'work';
         } else {
             if (markMode === 'book') markMode = 'work';
             else if (markMode === 'work') markMode = 'vacation';
+            else if (markMode === 'vacation') markMode = 'trip';
             else markMode = 'book';
         }
         updateModeBtn();
@@ -351,6 +372,7 @@
         btn.classList.remove('active');
         if (markMode === 'work') { btn.textContent = '🔨 РАБОТА'; }
         else if (markMode === 'vacation') { btn.textContent = '🏖 ОТПУСК'; btn.classList.add('active'); }
+        else if (markMode === 'trip') { btn.textContent = '✈ КОМАНДИРОВКА'; btn.classList.add('active'); }
         else { btn.textContent = '📋 БРОНЬ'; }
     }
 
@@ -375,6 +397,53 @@
         renderAll();
     }
 
+    function toggleTheme() {
+        const light = document.body.classList.toggle('light-theme');
+        localStorage.setItem('narabote-theme', light ? 'light' : 'dark');
+    }
+
+    /* ==========================================================
+     *  ВЫБОР МЕСЯЦА ПО КЛИКУ
+     * ========================================================== */
+
+    function toggleMonthPicker() {
+        let mp = document.querySelector('.month-picker');
+        if (mp) { mp.remove(); return; }
+        mp = document.createElement('div');
+        mp.className = 'month-picker';
+        renderMonthPicker(mp, curYear);
+        $('monthTitle').parentNode.style.position = 'relative';
+        $('monthTitle').parentNode.appendChild(mp);
+    }
+
+    function renderMonthPicker(mp, year) {
+        const SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+        let html = '<div class="mp-year-row">';
+        html += '<button class="nav-btn" style="width:28px;height:28px;font-size:13px" data-mp-y="-1">◀</button>';
+        html += '<span class="mp-year">' + year + '</span>';
+        html += '<button class="nav-btn" style="width:28px;height:28px;font-size:13px" data-mp-y="1">▶</button>';
+        html += '</div><div class="mp-grid">';
+        for (let i = 0; i < 12; i++) {
+            const act = (i === curMonth && year === curYear) ? ' active' : '';
+            html += '<div class="mp-cell' + act + '" data-mp-m="' + i + '" data-mp-yr="' + year + '">' + SHORT[i] + '</div>';
+        }
+        html += '</div>';
+        mp.innerHTML = html;
+        mp.querySelectorAll('[data-mp-y]').forEach(b => {
+            b.onclick = e => { e.stopPropagation(); renderMonthPicker(mp, year + parseInt(b.dataset.mpY)); };
+        });
+        mp.querySelectorAll('[data-mp-m]').forEach(c => {
+            c.onclick = e => {
+                e.stopPropagation();
+                curMonth = parseInt(c.dataset.mpM);
+                curYear = parseInt(c.dataset.mpYr);
+                selectedDate = null;
+                mp.remove();
+                renderAll();
+            };
+        });
+    }
+
     /* ==========================================================
      *  ВСПОМОГАТЕЛЬНЫЕ: данные по сотруднику
      * ========================================================== */
@@ -389,6 +458,10 @@
 
     function empVac(emp) {
         return new Set(vacData.filter(r => r.emp === emp).map(r => r.date));
+    }
+
+    function empTrip(emp) {
+        return new Set(tripData.filter(r => r.emp === emp).map(r => r.date));
     }
 
     function vacOverlapCount(empA, empB) {
@@ -439,6 +512,7 @@
 
         const vWork = empWork(viewingEmp);
         const vVac  = empVac(viewingEmp);
+        const vTrip = empTrip(viewingEmp);
 
         let html = '';
         for (let i = 0; i < empt; i++) html += '<div class="day-cell empty"></div>';
@@ -466,6 +540,7 @@
 
             if (vWork.has(key)) cls += ' has-work';
             if (vVac.has(key)) cls += ' has-vac';
+            if (vTrip.has(key)) cls += ' has-trip';
 
             /* Отпуск заблокирован: забронированная дата или превышен лимит пересечений */
             if (markMode === 'vacation' && !vVac.has(key)) {
@@ -488,8 +563,10 @@
                 /* Тултип */
                 const wHere = workData.filter(w => w.date === key).map(w => w.emp);
                 const vHere = vacData.filter(v => v.date === key).map(v => v.emp);
+                const tHere = tripData.filter(t => t.date === key).map(t => t.emp);
                 if (wHere.length) tooltip += '\n🔨 ' + wHere.join(', ');
                 if (vHere.length) tooltip += '\n🏖 ' + vHere.join(', ');
+                if (tHere.length) tooltip += '\n✈ ' + tHere.join(', ');
                 if (rec) {
                     const booked = [rec.emp1, rec.emp2].filter(Boolean);
                     if (booked.length) tooltip += '\n🔒 ' + booked.join(', ');
@@ -497,6 +574,7 @@
             } else {
                 if (vWork.has(key)) tooltip += '\n🔨 Рабочий день';
                 if (vVac.has(key)) tooltip += '\n🏖 Отпуск';
+                if (vTrip.has(key)) tooltip += '\n✈ Командировка';
             }
 
             html += '<div class="' + cls + '" data-date="' + key + '" title="' + tooltip.replace(/"/g, '&quot;') + '">' + d + dots + '</div>';
@@ -532,7 +610,7 @@
 
     async function handleDayClick(dateStr, cell, ev) {
         /* --- Shift+Click: выделить диапазон --- */
-        if (ev && ev.shiftKey && lastClickedDate && lastClickedDate !== dateStr && (markMode === 'work' || markMode === 'vacation')) {
+        if (ev && ev.shiftKey && lastClickedDate && lastClickedDate !== dateStr && (markMode === 'work' || markMode === 'vacation' || markMode === 'trip')) {
             if (!canEdit()) { toast('⛔ Нет прав', 'error'); return; }
             const range = dateRange(lastClickedDate, dateStr);
             if (!range.length) { toast('Нет рабочих дней в диапазоне', 'info'); return; }
@@ -547,7 +625,7 @@
                     if (res.success) added++; else errors++;
                 }
                 toast('Добавлено рабочих дней: ' + added + (errors ? ', ошибок: ' + errors : ''), added ? 'success' : 'error');
-            } else {
+            } else if (markMode === 'vacation') {
                 const v = empVac(viewingEmp);
                 for (const k of range) {
                     if (v.has(k)) continue;
@@ -556,6 +634,14 @@
                     if (res.success) added++; else errors++;
                 }
                 toast('Добавлено отпускных дней: ' + added + (errors ? ', пропущено: ' + errors : ''), added ? 'success' : 'error');
+            } else if (markMode === 'trip') {
+                const t = empTrip(viewingEmp);
+                for (const k of range) {
+                    if (t.has(k)) continue;
+                    const res = await window.api.addTrip(viewingEmp, k);
+                    if (res.success) added++; else errors++;
+                }
+                toast('Добавлено командировок: ' + added + (errors ? ', ошибок: ' + errors : ''), added ? 'success' : 'error');
             }
             lastClickedDate = dateStr;
             await loadAll();
@@ -597,6 +683,20 @@
                     return;
                 }
                 const res = await window.api.addVacation(viewingEmp, dateStr);
+                if (!res.success) { toast(res.message, 'error'); return; }
+            }
+            await loadAll();
+            return;
+        }
+
+        if (markMode === 'trip') {
+            if (!canEdit()) { toast('⛔ Нет прав на редактирование чужих данных', 'error'); return; }
+            const t = empTrip(viewingEmp);
+            if (t.has(dateStr)) {
+                const res = await window.api.removeTrip(viewingEmp, dateStr);
+                if (!res.success) { toast(res.message, 'error'); return; }
+            } else {
+                const res = await window.api.addTrip(viewingEmp, dateStr);
                 if (!res.success) { toast(res.message, 'error'); return; }
             }
             await loadAll();
@@ -654,8 +754,10 @@
 
             const wHere = workData.filter(w => w.date === dateStr);
             const vHere = vacData.filter(v => v.date === dateStr);
+            const tHere = tripData.filter(t => t.date === dateStr);
             if (wHere.length) html += '<div style="margin-top:6px;font-size:11px;color:var(--success)">🔨 Работают: ' + wHere.map(w => w.emp).join(', ') + '</div>';
             if (vHere.length) html += '<div style="font-size:11px;color:var(--primary)">🏖 Отпуск: ' + vHere.map(v => v.emp).join(', ') + '</div>';
+            if (tHere.length) html += '<div style="font-size:11px;color:var(--warning)">✈ Командировка: ' + tHere.map(t => t.emp).join(', ') + '</div>';
 
             /* Кнопка бронирования */
             const alreadyBooked = emp1 === viewingEmp || emp2 === viewingEmp;
@@ -695,7 +797,7 @@
             ? '📋 Дни: ' + viewingEmp
             : '📋 Мои дни';
         $('datesPanel').querySelector('.card-title').textContent = label;
-        $('dayCounts').textContent = w.size + ' раб. / ' + v.size + ' отп.';
+        $('dayCounts').textContent = w.size + ' раб. / ' + v.size + ' отп. / ' + empTrip(viewingEmp).size + ' ком.';
 
         const editable = canEdit();
         let html = '';
@@ -744,6 +846,19 @@
         }
         html += '</div>';
 
+        const tr = empTrip(viewingEmp);
+        html += '<div class="vac-section"><div class="vac-title" style="color:var(--warning)">✈ Командировки (' + tr.size + '):</div>';
+        if (tr.size) {
+            sk(Array.from(tr)).forEach(k => {
+                html += '<span class="vac-item">' + k;
+                if (editable) html += ' <button class="vac-del" data-tk="' + k + '">✕</button>';
+                html += '</span>';
+            });
+        } else {
+            html += '<p class="hint">нет командировок</p>';
+        }
+        html += '</div>';
+
         $('datesContent').innerHTML = html;
 
         if (!editable) return;
@@ -771,9 +886,17 @@
             };
         });
 
-        $('datesContent').querySelectorAll('.vac-del').forEach(b => {
+        $('datesContent').querySelectorAll('.vac-del[data-vk]').forEach(b => {
             b.onclick = async () => {
                 const res = await window.api.removeVacation(viewingEmp, b.dataset.vk);
+                if (!res.success) toast(res.message, 'error');
+                await loadAll();
+            };
+        });
+
+        $('datesContent').querySelectorAll('.vac-del[data-tk]').forEach(b => {
+            b.onclick = async () => {
+                const res = await window.api.removeTrip(viewingEmp, b.dataset.tk);
                 if (!res.success) toast(res.message, 'error');
                 await loadAll();
             };
@@ -825,9 +948,9 @@
 
     function renderStats() {
         const showEmps = isWorker() ? allEmployees.filter(e => e === employeeId) : allEmployees;
-        let gD = 0, gN = 0, gF = 0, gV = 0, rows = '';
+        let gD = 0, gN = 0, gF = 0, gV = 0, gT = 0, rows = '';
         showEmps.forEach(emp => {
-            const w = empWork(emp), v = empVac(emp);
+            const w = empWork(emp), v = empVac(emp), t = empTrip(emp);
             let tF = 0, tN = 0, rD = 0, pD = 0;
             w.forEach((i, k) => {
                 const dt = pkDate(k), pr = isP(dt);
@@ -842,20 +965,21 @@
             rows += '<td class="nv">' + tN.toFixed(2) + '</td><td class="' + dc + '">' + tF.toFixed(2) + '</td>';
             rows += '<td class="' + dc + '">' + ds + '</td><td>' + v.size + '</td>';
             const vacLeft = VACATION_LIMIT - v.size;
-            rows += '<td class="' + (vacLeft > 0 ? 'fp' : vacLeft === 0 ? 'nv' : 'fn') + '">' + vacLeft + '</td></tr>';
-            gD += w.size; gN += tN; gF += tF; gV += v.size;
+            rows += '<td class="' + (vacLeft > 0 ? 'fp' : vacLeft === 0 ? 'nv' : 'fn') + '">' + vacLeft + '</td>';
+            rows += '<td>' + t.size + '</td></tr>';
+            gD += w.size; gN += tN; gF += tF; gV += v.size; gT += t.size;
         });
 
         if (!isWorker()) {
             const gd2 = gF - gN, gs = gd2 >= 0 ? '+' + gd2.toFixed(2) : gd2.toFixed(2);
             const gc = gd2 >= 0 ? 'fp' : 'fn';
             rows += '<tr class="trow"><td>ИТОГО</td><td>' + gD + '</td><td colspan="2">—</td>';
-            rows += '<td>' + gN.toFixed(2) + '</td><td>' + gF.toFixed(2) + '</td><td class="' + gc + '">' + gs + '</td><td>' + gV + '</td><td>' + (VACATION_LIMIT * showEmps.length - gV) + '</td></tr>';
+            rows += '<td>' + gN.toFixed(2) + '</td><td>' + gF.toFixed(2) + '</td><td class="' + gc + '">' + gs + '</td><td>' + gV + '</td><td>' + (VACATION_LIMIT * showEmps.length - gV) + '</td><td>' + gT + '</td></tr>';
         }
 
         $('statsContent').innerHTML =
             '<table class="st"><thead><tr><th>Сотрудник</th><th>Дн</th><th>Об</th><th>ПП</th>' +
-            '<th>Норма</th><th>Факт</th><th>±</th><th>🏖</th><th>Ост.</th></tr></thead><tbody>' + rows + '</tbody></table>';
+            '<th>Норма</th><th>Факт</th><th>±</th><th>🏖</th><th>Ост.</th><th>✈</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
     /* ==========================================================
@@ -968,10 +1092,37 @@
                 });
             };
         });
+
+        /* Журнал действий */
+        renderAudit();
     }
 
     function escHtml(s) {
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ==========================================================
+     *  ЖУРНАЛ ДЕЙСТВИЙ (АУДИТ) — только админ
+     * ========================================================== */
+
+    async function renderAudit() {
+        if (!isAdmin()) return;
+        const el = $('auditContent');
+        if (!el) return;
+        const res = await window.api.loadAudit();
+        if (!res.success) { el.innerHTML = '<p class="hint">Ошибка загрузки</p>'; return; }
+        const log = res.data;
+        if (!log.length) { el.innerHTML = '<p class="hint">Журнал пуст</p>'; return; }
+        let html = '';
+        for (let i = log.length - 1; i >= Math.max(0, log.length - 50); i--) {
+            const e = log[i];
+            const ts = e.ts ? e.ts.replace('T', ' ').substring(0, 16) : '';
+            html += '<div class="audit-row"><span class="audit-ts">' + escHtml(ts) + '</span>';
+            html += '<span class="audit-action">' + escHtml(e.action) + '</span>';
+            html += '<span class="audit-user">' + escHtml(e.user) + '</span>';
+            html += '<span class="audit-details">' + escHtml(e.details || '') + '</span></div>';
+        }
+        el.innerHTML = html;
     }
 
     /* ==========================================================

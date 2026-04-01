@@ -46,6 +46,22 @@ function isManagerOrAdmin() {
     return session.type === 'admin' || session.role === 'manager';
 }
 
+/* ======================= ЖУРНАЛ ДЕЙСТВИЙ ==================== */
+
+const AUDIT_PATH = path.join(__dirname, 'data', 'audit.json');
+
+function auditLog(action, user, details) {
+    try {
+        let log = [];
+        if (fs.existsSync(AUDIT_PATH)) {
+            log = JSON.parse(fs.readFileSync(AUDIT_PATH, 'utf-8'));
+        }
+        log.push({ ts: new Date().toISOString(), action, user: user || 'system', details });
+        if (log.length > 500) log = log.slice(-500);
+        fs.writeFileSync(AUDIT_PATH, JSON.stringify(log, null, 2), 'utf-8');
+    } catch (e) { console.error('Audit error:', e.message); }
+}
+
 /* ======================= ОКНО =============================== */
 
 function createWindow() {
@@ -85,7 +101,20 @@ ipcMain.handle('admin-login', (ev, login, password) => {
 
 ipcMain.handle('user-login', (ev, login, password) => {
     const res = users.userLogin(login, password);
-    if (res.success) session = { type: 'user', empId: res.empId, role: res.role };
+    if (res.success) {
+        session = { type: 'user', empId: res.empId, role: res.role };
+        const lastLogin = users.getLastLogin(login);
+        let notifications = [];
+        try {
+            if (lastLogin && fs.existsSync(AUDIT_PATH)) {
+                const log = JSON.parse(fs.readFileSync(AUDIT_PATH, 'utf-8'));
+                notifications = log.filter(e => e.ts > lastLogin).slice(-20);
+            }
+        } catch (e) {}
+        users.updateLastLogin(login);
+        res.notifications = notifications;
+        auditLog('login', res.empId, 'Вход в систему');
+    }
     return res;
 });
 
@@ -111,7 +140,9 @@ ipcMain.handle('list-users', () => ({ success: true, data: users.listUsers() }))
 
 ipcMain.handle('set-role', (ev, empId, role) => {
     if (session.type !== 'admin') return { success: false, message: 'Только администратор' };
-    return users.setRole(empId, role);
+    const res = users.setRole(empId, role);
+    if (res.success) auditLog('set-role', 'admin', empId + ' → ' + role);
+    return res;
 });
 
 ipcMain.handle('rename-user', (ev, empId, newName) => {
@@ -121,7 +152,9 @@ ipcMain.handle('rename-user', (ev, empId, newName) => {
 
 ipcMain.handle('delete-user', (ev, empId) => {
     if (session.type !== 'admin') return { success: false, message: 'Только администратор' };
-    return users.deleteUser(empId);
+    const res = users.deleteUser(empId);
+    if (res.success) auditLog('delete-user', 'admin', empId);
+    return res;
 });
 
 ipcMain.handle('reset-password', (ev, empId, newPass) => {
@@ -134,6 +167,15 @@ ipcMain.handle('change-admin-password', (ev, oldPass, newPass) => {
     return users.changeAdminPassword(oldPass, newPass);
 });
 
+/* --- Журнал действий (только админ) --- */
+ipcMain.handle('load-audit', () => {
+    if (session.type !== 'admin') return { success: false, message: 'Только администратор' };
+    try {
+        if (!fs.existsSync(AUDIT_PATH)) return { success: true, data: [] };
+        return { success: true, data: JSON.parse(fs.readFileSync(AUDIT_PATH, 'utf-8')) };
+    } catch (e) { return { success: false, message: e.message }; }
+});
+
 /* --- График (бронирование) — ТОЛЬКО руководитель/админ --- */
 ipcMain.handle('load-schedule', () => {
     try { return { success: true, data: schedule.read() }; }
@@ -141,13 +183,19 @@ ipcMain.handle('load-schedule', () => {
 });
 ipcMain.handle('book-date', (ev, dateStr, empId) => {
     if (!isManagerOrAdmin()) return { success: false, message: 'Бронирование доступно только руководителю/админу' };
-    try { return schedule.book(dateStr, String(empId).trim()); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const res = schedule.book(dateStr, String(empId).trim());
+        if (res.success) auditLog('book', session.empId || 'admin', empId + ' → ' + dateStr);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
 });
 ipcMain.handle('cancel-booking', (ev, dateStr, empId) => {
     if (!isManagerOrAdmin()) return { success: false, message: 'Отмена брони — только руководитель/админ' };
-    try { return schedule.cancel(dateStr, String(empId).trim()); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const res = schedule.cancel(dateStr, String(empId).trim());
+        if (res.success) auditLog('cancel-booking', session.empId || 'admin', empId + ' ← ' + dateStr);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
 });
 
 /* --- Рабочие дни --- */
@@ -163,13 +211,19 @@ ipcMain.handle('load-work', () => {
 });
 ipcMain.handle('set-work', (ev, emp, date, start, end, lunch, rate) => {
     if (!allowed(emp)) return { success: false, message: 'Нет прав' };
-    try { return schedule.setWork(emp, date, start, end, lunch, rate); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const res = schedule.setWork(emp, date, start, end, lunch, rate);
+        if (res.success) auditLog('set-work', session.empId || 'admin', emp + ' ' + date);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
 });
 ipcMain.handle('remove-work', (ev, emp, date) => {
     if (!allowed(emp)) return { success: false, message: 'Нет прав' };
-    try { return schedule.removeWork(emp, date); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const res = schedule.removeWork(emp, date);
+        if (res.success) auditLog('remove-work', session.empId || 'admin', emp + ' ' + date);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
 });
 
 /* --- Отпуск --- */
@@ -207,13 +261,45 @@ ipcMain.handle('add-vacation', (ev, emp, date) => {
                 return { success: false, message: 'Превышен лимит совпадений отпуска (' + MAX_OVERLAP + ' дн.) с ' + other };
             }
         }
-        return schedule.addVacation(emp, date);
+        const res = schedule.addVacation(emp, date);
+        if (res.success) auditLog('add-vacation', session.empId || 'admin', emp + ' ' + date);
+        return res;
     } catch (e) { return { success: false, message: e.message }; }
 });
 ipcMain.handle('remove-vacation', (ev, emp, date) => {
     if (!allowed(emp)) return { success: false, message: 'Нет прав' };
-    try { return schedule.removeVacation(emp, date); }
-    catch (e) { return { success: false, message: e.message }; }
+    try {
+        const res = schedule.removeVacation(emp, date);
+        if (res.success) auditLog('remove-vacation', session.empId || 'admin', emp + ' ' + date);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
+});
+
+/* --- Командировки --- */
+ipcMain.handle('load-trips', () => {
+    try {
+        let data = schedule.readTrips();
+        if (session.type === 'user' && session.role === 'worker') {
+            data = data.filter(r => r.emp === session.empId);
+        }
+        return { success: true, data };
+    } catch (e) { return { success: false, message: e.message }; }
+});
+ipcMain.handle('add-trip', (ev, emp, date) => {
+    if (!allowed(emp)) return { success: false, message: 'Нет прав' };
+    try {
+        const res = schedule.addTrip(emp, date);
+        if (res.success) auditLog('add-trip', session.empId || 'admin', emp + ' ' + date);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
+});
+ipcMain.handle('remove-trip', (ev, emp, date) => {
+    if (!allowed(emp)) return { success: false, message: 'Нет прав' };
+    try {
+        const res = schedule.removeTrip(emp, date);
+        if (res.success) auditLog('remove-trip', session.empId || 'admin', emp + ' ' + date);
+        return res;
+    } catch (e) { return { success: false, message: e.message }; }
 });
 
 /* --- Сотрудники --- */
@@ -282,10 +368,50 @@ ipcMain.handle('select-file', async () => {
     return r.canceled ? null : r.filePaths[0];
 });
 
+/* ======================= АВТОБЭКАП ========================== */
+
+const BACKUP_DIR = path.join(__dirname, 'data', 'backups');
+const MAX_BACKUPS = 5;
+
+function autoBackup() {
+    try {
+        const dataDir = path.join(__dirname, 'data');
+        if (!fs.existsSync(dataDir)) return;
+        if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+
+        const now = new Date();
+        const stamp = now.getFullYear() + pad2(now.getMonth() + 1) + pad2(now.getDate()) +
+                      '_' + pad2(now.getHours()) + pad2(now.getMinutes());
+        const backupPath = path.join(BACKUP_DIR, 'backup_' + stamp);
+        fs.mkdirSync(backupPath, { recursive: true });
+
+        /* Копируем файлы данных */
+        const files = fs.readdirSync(dataDir).filter(f => /\.(xlsx|ods|json)$/i.test(f));
+        files.forEach(f => {
+            fs.copyFileSync(path.join(dataDir, f), path.join(backupPath, f));
+        });
+
+        /* Ротация — удаляем старые бэкапы */
+        const backups = fs.readdirSync(BACKUP_DIR)
+            .filter(d => d.startsWith('backup_'))
+            .sort().reverse();
+        backups.slice(MAX_BACKUPS).forEach(old => {
+            const p = path.join(BACKUP_DIR, old);
+            fs.readdirSync(p).forEach(f => fs.unlinkSync(path.join(p, f)));
+            fs.rmdirSync(p);
+        });
+
+        console.log('Автобэкап создан:', backupPath);
+    } catch (e) { console.error('Ошибка автобэкапа:', e.message); }
+}
+
+function pad2(n) { return n.toString().padStart(2, '0'); }
+
 /* ======================= ЗАПУСК ============================= */
 
 app.whenReady().then(() => {
     initSchedule();
+    autoBackup();
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

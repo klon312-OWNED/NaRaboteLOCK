@@ -80,6 +80,7 @@
         <div class="topbar-right">
             <span class="user-info" id="userInfo"></span>
             <span class="role-badge" id="roleBadge"></span>
+            <button class="btn btn-sm btn-outline" id="themeBtn" title="Сменить тему">🌓</button>
             <button class="btn btn-sm btn-outline" id="logoutBtn">Выход</button>
         </div>
     </header>
@@ -122,6 +123,7 @@
                     <span class="leg-item"><span class="leg-dot dot-mine"></span> Моя бронь</span>
                     <span class="leg-item"><span class="leg-dot dot-work"></span> Рабочий</span>
                     <span class="leg-item"><span class="leg-dot dot-vac"></span> Отпуск</span>
+                    <span class="leg-item"><span class="leg-dot dot-trip"></span> Команд.</span>
                     <span class="leg-item"><span class="leg-dot dot-hol"></span> Праздник</span>
                     <span class="leg-item"><span class="leg-dot dot-pre"></span> Предпразд.</span>
                 </div>
@@ -192,6 +194,13 @@
                             <input type="password" id="oldAdminPass" class="si" placeholder="Текущий" style="width:110px;">
                             <input type="password" id="newAdminPass" class="si" placeholder="Новый" style="width:110px;">
                             <button class="btn btn-primary btn-xs" id="changePassBtn">Сменить</button>
+                        </div>
+                    </div>
+                    <!-- Журнал действий -->
+                    <div class="admin-pass-section">
+                        <div class="vac-title">📋 Журнал действий</div>
+                        <div class="audit-scroll" id="auditContent">
+                            <p class="hint">Загрузка...</p>
                         </div>
                     </div>
                 </div>
