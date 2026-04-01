@@ -1,7 +1,7 @@
 {
-  "name": "booking-app",
+  "name": "narabote",
   "version": "1.0.0",
-  "description": "Приложение бронирования дат сотрудниками (Electron + xlsx)",
+  "description": "НаРаботе — учёт рабочего времени, отпусков и графиков сотрудников (Electron + xlsx)",
   "author": {
     "name": "Антипин Андрей Александрович",
     "email": "Skilleforsken@gmail.com"
