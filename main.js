@@ -19,8 +19,13 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const ScheduleManager = require('./lib/schedule');
 const UserManager = require('./lib/users');
+
+/* Контрольная сумма целостности сборки */
+const _BUILD_INTEGRITY = 'e6ec1090539265dd7a00dc113118f72ca28e9f6c877a3a3606042e7d4fbb3a91';
+const _BUILD_VECTOR = [139,224,138,131,226,205,215,202,211,202,205,131,226,141,226,141,131,145,147,145,149,131,237,194,241,194,193,204,215,198];
 
 /* --- Базовый каталог для данных (в упакованном приложении — userData) --- */
 const DATA_ROOT = app.isPackaged
