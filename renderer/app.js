@@ -80,6 +80,9 @@
     let lastClickedDate = null;
     /** Лимит отпускных дней по ТК РФ */
     const VACATION_LIMIT = 28;
+    /** Интервал автообновления (мс) */
+    const RELOAD_INTERVAL = 3000;
+    let reloadTimer = null;
 
     /* ==========================================================
      *  ВСПОМОГАТЕЛЬНЫЕ: права
@@ -132,6 +135,14 @@
         $('todayBtn').onclick = goToday;
         $('themeBtn').onclick = toggleTheme;
         $('monthTitle').onclick = toggleMonthPicker;
+
+        /* Автосохранение настроек */
+        const SETTINGS_IDS = ['defStart','defEnd','defLunch','defNorm','defRate','defBreak'];
+        restoreSettings();
+        SETTINGS_IDS.forEach(id => {
+            $(id).addEventListener('input', () => saveSettings());
+            $(id).addEventListener('change', () => saveSettings());
+        });
 
         /* Тема из localStorage */
         if (localStorage.getItem('narabote-theme') === 'light') document.body.classList.add('light-theme');
@@ -233,9 +244,14 @@
         markMode = isManagerOrAdmin() ? 'book' : 'work';
         updateModeBtn();
         loadAll();
+
+        /* Автообновление — опрос каждые N сек для многопользовательской работы */
+        if (reloadTimer) clearInterval(reloadTimer);
+        reloadTimer = setInterval(autoReload, RELOAD_INTERVAL);
     }
 
     async function doLogout() {
+        if (reloadTimer) { clearInterval(reloadTimer); reloadTimer = null; }
         await window.api.logout();
         session = { type: null, empId: null, role: null };
         employeeId = ''; viewingEmp = ''; selectedDate = null;
@@ -395,6 +411,74 @@
         curYear = now.getFullYear();
         selectedDate = fk(now.getDate(), now.getMonth(), now.getFullYear());
         renderAll();
+    }
+
+    /* ==========================================================
+     *  АВТОСОХРАНЕНИЕ НАСТРОЕК
+     * ========================================================== */
+
+    function saveSettings() {
+        const data = {};
+        ['defStart','defEnd','defLunch','defNorm','defRate','defBreak'].forEach(id => {
+            data[id] = $(id).value;
+        });
+        localStorage.setItem('narabote-settings', JSON.stringify(data));
+    }
+
+    function restoreSettings() {
+        try {
+            const raw = localStorage.getItem('narabote-settings');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            Object.entries(data).forEach(([id, val]) => {
+                if ($(id)) $(id).value = val;
+            });
+        } catch (e) {}
+    }
+
+    /* ==========================================================
+     *  АВТООБНОВЛЕНИЕ (многопользовательский режим)
+     * ========================================================== */
+
+    let _reloading = false;
+    async function autoReload() {
+        if (!session.type || _reloading) return;
+        _reloading = true;
+        try {
+            const [sRes, wRes, vRes, tRes, eRes] = await Promise.all([
+                window.api.loadSchedule(), window.api.loadWork(),
+                window.api.loadVacation(), window.api.loadTrips(), window.api.getEmployees()
+            ]);
+            const newSchedule = sRes.success ? sRes.data : [];
+            const newWork = wRes.success ? wRes.data : [];
+            const newVac = vRes.success ? vRes.data : [];
+            const newTrips = tRes.success ? tRes.data : [];
+            const newEmps = eRes.success ? eRes.data : [];
+
+            /* Перерисовываем только если данные изменились */
+            const changed = JSON.stringify(newSchedule) !== JSON.stringify(scheduleData) ||
+                            JSON.stringify(newWork) !== JSON.stringify(workData) ||
+                            JSON.stringify(newVac) !== JSON.stringify(vacData) ||
+                            JSON.stringify(newTrips) !== JSON.stringify(tripData) ||
+                            JSON.stringify(newEmps) !== JSON.stringify(allEmployees);
+            if (changed) {
+                scheduleData = newSchedule;
+                workData = newWork;
+                vacData = newVac;
+                tripData = newTrips;
+                allEmployees = newEmps;
+                if (employeeId && employeeId !== 'admin' && !allEmployees.includes(employeeId))
+                    allEmployees.push(employeeId);
+                allEmployees.sort();
+                if (isManagerOrAdmin()) {
+                    populateEmpSelector();
+                    if (!viewingEmp && allEmployees.length) viewingEmp = allEmployees[0];
+                }
+                renderAll();
+                if (isAdmin()) renderAdminPanel();
+            }
+        } catch (e) {}
+        _reloading = false;
     }
 
     function toggleTheme() {
