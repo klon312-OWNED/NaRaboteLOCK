@@ -75,6 +75,10 @@
     let curMonth = 3, curYear = 2026, selectedDate = null;
     /** Режим: 'book' | 'work' | 'vacation' */
     let markMode = 'work';
+    /** Для Shift+Click выделения диапазона */
+    let lastClickedDate = null;
+    /** Лимит отпускных дней по ТК РФ */
+    const VACATION_LIMIT = 28;
 
     /* ==========================================================
      *  ВСПОМОГАТЕЛЬНЫЕ: права
@@ -124,6 +128,12 @@
         $('empSelector').onchange = onEmpSelectorChange;
         $('changePassBtn').onclick = doChangeAdminPass;
         $('bulkUnblockBtn').onclick = doBulkUnblock;
+        $('todayBtn').onclick = goToday;
+
+        /* Клавиатура: Escape закрывает модалку */
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') hideModal();
+        });
     }
 
     function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -357,6 +367,14 @@
         renderCalendar();
     }
 
+    function goToday() {
+        const now = new Date();
+        curMonth = now.getMonth();
+        curYear = now.getFullYear();
+        selectedDate = fk(now.getDate(), now.getMonth(), now.getFullYear());
+        renderAll();
+    }
+
     /* ==========================================================
      *  ВСПОМОГАТЕЛЬНЫЕ: данные по сотруднику
      * ========================================================== */
@@ -457,6 +475,7 @@
 
             /* Точки других сотрудников — только для руководителя/админа */
             let dots = '';
+            let tooltip = key;
             if (isManagerOrAdmin()) {
                 const othersWork = allEmployees.filter(e => e !== viewingEmp && workData.some(w => w.emp === e && w.date === key));
                 const othersVac  = allEmployees.filter(e => e !== viewingEmp && vacData.some(v => v.emp === e && v.date === key));
@@ -466,9 +485,21 @@
                     othersVac.forEach(() => { dots += '<div class="dot-s" style="background:var(--primary)"></div>'; });
                     dots += '</div>';
                 }
+                /* Тултип */
+                const wHere = workData.filter(w => w.date === key).map(w => w.emp);
+                const vHere = vacData.filter(v => v.date === key).map(v => v.emp);
+                if (wHere.length) tooltip += '\n🔨 ' + wHere.join(', ');
+                if (vHere.length) tooltip += '\n🏖 ' + vHere.join(', ');
+                if (rec) {
+                    const booked = [rec.emp1, rec.emp2].filter(Boolean);
+                    if (booked.length) tooltip += '\n🔒 ' + booked.join(', ');
+                }
+            } else {
+                if (vWork.has(key)) tooltip += '\n🔨 Рабочий день';
+                if (vVac.has(key)) tooltip += '\n🏖 Отпуск';
             }
 
-            html += '<div class="' + cls + '" data-date="' + key + '">' + d + dots + '</div>';
+            html += '<div class="' + cls + '" data-date="' + key + '" title="' + tooltip.replace(/"/g, '&quot;') + '">' + d + dots + '</div>';
         }
 
         const tot = Math.ceil((empt + dim) / 7) * 7;
@@ -476,7 +507,7 @@
         $('calGrid').innerHTML = html;
 
         document.querySelectorAll('.day-cell[data-date]').forEach(cell => {
-            cell.onclick = () => handleDayClick(cell.dataset.date, cell);
+            cell.onclick = (e) => handleDayClick(cell.dataset.date, cell, e);
         });
     }
 
@@ -484,7 +515,55 @@
      *  ОБРАБОТКА КЛИКА ПО ДНЮ
      * ========================================================== */
 
-    async function handleDayClick(dateStr, cell) {
+    /** Генерация диапазона дат dd.mm.yyyy между a и b (включительно), без выходных/праздников */
+    function dateRange(a, b) {
+        const pa = pkDate(a), pb = pkDate(b);
+        const from = pa < pb ? pa : pb, to = pa < pb ? pb : pa;
+        const result = [];
+        const cur = new Date(from);
+        while (cur <= to) {
+            if (!isW(cur) && !isH(cur)) {
+                result.push(fk(cur.getDate(), cur.getMonth(), cur.getFullYear()));
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+        return result;
+    }
+
+    async function handleDayClick(dateStr, cell, ev) {
+        /* --- Shift+Click: выделить диапазон --- */
+        if (ev && ev.shiftKey && lastClickedDate && lastClickedDate !== dateStr && (markMode === 'work' || markMode === 'vacation')) {
+            if (!canEdit()) { toast('⛔ Нет прав', 'error'); return; }
+            const range = dateRange(lastClickedDate, dateStr);
+            if (!range.length) { toast('Нет рабочих дней в диапазоне', 'info'); return; }
+
+            let added = 0, errors = 0;
+            if (markMode === 'work') {
+                const w = empWork(viewingEmp);
+                const d = getDefaults();
+                for (const k of range) {
+                    if (w.has(k)) continue;
+                    const res = await window.api.setWork(viewingEmp, k, d.start, d.end, d.lunch, d.rate);
+                    if (res.success) added++; else errors++;
+                }
+                toast('Добавлено рабочих дней: ' + added + (errors ? ', ошибок: ' + errors : ''), added ? 'success' : 'error');
+            } else {
+                const v = empVac(viewingEmp);
+                for (const k of range) {
+                    if (v.has(k)) continue;
+                    if (isDateBooked(k)) { errors++; continue; }
+                    const res = await window.api.addVacation(viewingEmp, k);
+                    if (res.success) added++; else errors++;
+                }
+                toast('Добавлено отпускных дней: ' + added + (errors ? ', пропущено: ' + errors : ''), added ? 'success' : 'error');
+            }
+            lastClickedDate = dateStr;
+            await loadAll();
+            return;
+        }
+
+        lastClickedDate = dateStr;
+
         if (markMode === 'work') {
             if (!canEdit()) { toast('⛔ Нет прав на редактирование чужих данных', 'error'); return; }
             const w = empWork(viewingEmp);
@@ -761,7 +840,9 @@
             rows += '<tr' + (isViewing ? ' style="background:rgba(74,124,255,0.08)"' : '') + '>';
             rows += '<td>' + emp + (isViewing ? ' ★' : '') + '</td><td>' + w.size + '</td><td>' + rD + '</td><td>' + pD + '</td>';
             rows += '<td class="nv">' + tN.toFixed(2) + '</td><td class="' + dc + '">' + tF.toFixed(2) + '</td>';
-            rows += '<td class="' + dc + '">' + ds + '</td><td>' + v.size + '</td></tr>';
+            rows += '<td class="' + dc + '">' + ds + '</td><td>' + v.size + '</td>';
+            const vacLeft = VACATION_LIMIT - v.size;
+            rows += '<td class="' + (vacLeft > 0 ? 'fp' : vacLeft === 0 ? 'nv' : 'fn') + '">' + vacLeft + '</td></tr>';
             gD += w.size; gN += tN; gF += tF; gV += v.size;
         });
 
@@ -769,12 +850,12 @@
             const gd2 = gF - gN, gs = gd2 >= 0 ? '+' + gd2.toFixed(2) : gd2.toFixed(2);
             const gc = gd2 >= 0 ? 'fp' : 'fn';
             rows += '<tr class="trow"><td>ИТОГО</td><td>' + gD + '</td><td colspan="2">—</td>';
-            rows += '<td>' + gN.toFixed(2) + '</td><td>' + gF.toFixed(2) + '</td><td class="' + gc + '">' + gs + '</td><td>' + gV + '</td></tr>';
+            rows += '<td>' + gN.toFixed(2) + '</td><td>' + gF.toFixed(2) + '</td><td class="' + gc + '">' + gs + '</td><td>' + gV + '</td><td>' + (VACATION_LIMIT * showEmps.length - gV) + '</td></tr>';
         }
 
         $('statsContent').innerHTML =
             '<table class="st"><thead><tr><th>Сотрудник</th><th>Дн</th><th>Об</th><th>ПП</th>' +
-            '<th>Норма</th><th>Факт</th><th>±</th><th>🏖</th></tr></thead><tbody>' + rows + '</tbody></table>';
+            '<th>Норма</th><th>Факт</th><th>±</th><th>🏖</th><th>Ост.</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
     /* ==========================================================

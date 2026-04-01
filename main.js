@@ -52,7 +52,6 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280, height: 860, minWidth: 900, minHeight: 650,
         title: 'Бронирование дат',
-        icon: path.join(__dirname, 'renderer', 'icon.png'),
         webPreferences: {
             nodeIntegration: false, contextIsolation: true,
             preload: path.join(__dirname, 'preload.js')
